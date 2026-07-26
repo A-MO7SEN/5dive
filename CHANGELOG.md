@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.16.0 — `5dive selfcheck`: prove the rails ACTED, not that they reported (DIVE-2039) (2026-07-26)
+
+Opens v0.16 "Fails loud" (epic DIVE-2038). Every check we owned graded a rail on
+what it REPORTED. This one grades it on what it CHANGED — the 24h that produced
+0.15.8..0.15.30 had one dominant defect: a rail that reported success and changed
+nothing (DIVE-2003 harness exit 0 with a stranded verdict, DIVE-1989 nine audit
+sub-events gated on `$EUID`, DIVE-1968 gates filed and pinged recording nothing,
+DIVE-1991 a snapshot exiting 0 having saved nothing, DIVE-1977 a bundle and its
+checksum from two cache generations, DIVE-1929 a partial read rendered as a number).
+None of them was catchable by running the rail and reading its output.
+
+`5dive selfcheck [--json] [--only=] [--full] [--strict] [--allow=] [--report=]
+[--label=] [--list]` runs each critical rail FOR REAL in an isolated
+STATE_DIR/TASKS_DB/AUDIT_LOG and asserts the effect: a filed gate leaves a delivery
+row carrying the channel it reached (both the silent-path `error` row + rc 3 and the
+confirmed-send `ok` backfill); an audit row lands for an action, or a blocked append
+leaves a drop marker; every harness's exit status is wired to its own verdict
+(mutation, not a green run); the tracked bundle, its checksum and `src/` all agree;
+committed crontab snapshots match the live crontabs and a save-nothing run exits
+non-zero; and every scorecard row either says NO DATA and names what was missed or
+carries a number and declares its coverage.
+
+**NOT-REACHED is a first-class third verdict**, never folded into pass, and one with
+no reason exits non-zero. Because a reasoned skip is correctly not a failure in any
+single run, `--report=` + `tests/meta/selfcheck-union.sh` assert the invariant that
+does survive: every probe is REACHED in at least one environment. CI now runs
+selfcheck in three environments (pristine, installed-host, installed-root) and unions
+them — `audit-root` and `audit-nonroot` are separate probes precisely because
+DIVE-1989 stayed invisible for as long as the audit log was measured from one side.
+
+Proven by MUTATION, not by a green run (`tests/selfcheck_mutation_e2e.sh`): the gate
+delivery assertion, the audit append, a harness's exit status and the bundle checksum
+are each broken for real in a throwaway copy of the tree, selfcheck is required to go
+red AND to name the breakage, then restored and required to go green. "It passed" is
+not evidence for a prover of this defect class; "it failed when I broke it" is.
+
 ## 0.15.39 — fix(gate): a lead-routed gate emitted ZERO delivery telemetry and never reached the DIVE-1968 delivery assertion (DIVE-2011) (2026-07-26)
 
 - **The DIVE-1968 delivery assertion did not cover the rail most builder gates take.**
